@@ -19,9 +19,9 @@ namespace DiscordMusicBot {
         public string ClientSecret = "YourClientSecret";
         public string BotName = "Lounge Bot";
         public string Token = "NTA3MzEwNzUwODAxNTkyMzMw.Dru3Pw.6SqMzuFglO_NnUsOxQkQWK98VRs";
-        public string ServerName = "Lon";
-        public string TextChannelName = "bot";
-        public string VoiceChannelName = "lounge";
+        public string ServerName = "devv";
+        public string TextChannelName = "bot-console";
+        public string VoiceChannelName = "General";
 
         public static bool operator ==(Config cfg1, Config cfg2) {
             return cfg1 is null ? cfg2 is null : cfg1.Equals(cfg1);

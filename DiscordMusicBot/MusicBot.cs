@@ -10,6 +10,11 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
+using FilePath = System.String;
+using Title = System.String;
+using Duration = System.String; //(???)
+using RequestFrom = System.String;
+
 namespace DiscordMusicBot {
     internal class MusicBot : IDisposable {
         private DiscordSocketClient _client;
@@ -20,12 +25,17 @@ namespace DiscordMusicBot {
         private CancellationTokenSource _disposeToken;
         private IAudioClient _audio;
         private const string ImABot = " *I'm a Bot, beep boop blop*";
-        private readonly string[] _commands = { "!help", "!queue", "!add", "!addPlaylist", "!pause", "!play", "!clear", "!come", "!update", "!skip" };
+        private readonly string[] _commands = {
+            "!help", "!queue", "!add", "!addPlaylist", "!pause", "!play", "!clear", "!come", "!update", "!skip",
+#if responsive
+            "!say"
+#endif
+        };
 
         /// <summary>
         /// Tuple(FilePath, Video Name, Duration, Requested by)
         /// </summary>
-        private Queue<Tuple<string, string, string, string>> _queue;
+        private Queue<Tuple<FilePath, Title, Duration, RequestFrom>> _queue;
 
         private bool Pause {
             get => _internalPause;
@@ -212,7 +222,7 @@ namespace DiscordMusicBot {
 
                 #region Only with Roles
 
-                if (!_permittedUsers.Contains(socketMsg.Author.ToString())) {
+                if (!_permittedUsers.Contains(socketMsg.Author.Username)) {
                     await dm.SendMessageAsync("Sorry, but you're not allowed to do that!" + ImABot);
                     return;
                 }
@@ -240,13 +250,13 @@ namespace DiscordMusicBot {
                                 //Answer
                                 if (result) {
                                     try {
-                                        Print("Downloading Video...", ConsoleColor.Magenta);
+                                        Print("Downloading Video at url: "+parameter, ConsoleColor.Magenta);
 
                                         Tuple<string, string> info = await DownloadHelper.GetInfo(parameter);
-                                        await SendMessage($"<@{socketMsg.Author.Id}> requested \"{info.Item1}\" ({info.Item2})! Downloading now..." +
-                                                          ImABot);
+                                        Print($"Got info from url.\n Title: {info.Item1}, Duration: {info.Item2}", ConsoleColor.Green);
 
                                         //Download
+                                        Print("Downloading file", ConsoleColor.Gray);
                                         string file = await DownloadHelper.Download(parameter);
                                         var vidInfo = new Tuple<string, string, string, string>(file, info.Item1, info.Item2, socketMsg.Author.ToString());
 
@@ -385,7 +395,14 @@ namespace DiscordMusicBot {
                         break;
 
                     #endregion
-
+#if responsive
+                    #region !say
+                    case "!say":
+                        Print("Printing "+parameter+" on text channel.",ConsoleColor.Gray);
+                        await SendMessage(parameter);
+                        break;
+                    #endregion
+#endif
                     default:
                         // no command
                         break;
@@ -436,8 +453,14 @@ namespace DiscordMusicBot {
 
         //Send Message to channel
         public async Task SendMessage(string message) {
+#if responsive
             if (_textChannel != null)
+            {
+                Print("Sending message: "+message, ConsoleColor.Gray);
                 await _textChannel.SendMessageAsync(message);
+                Print("Message sent.", ConsoleColor.Green);
+            }
+#endif
         }
 
         //Send Song queue in channel
@@ -491,11 +514,13 @@ namespace DiscordMusicBot {
         //Dispose this Object (Async)
         private async Task DisposeAsync() {
             try {
+                await _audio.StopAsync();
                 await _client.StopAsync();
                 await _client.LogoutAsync();
             } catch {
                 // could not disconnect
             }
+            _audio?.Dispose();
             _client?.Dispose();
         }
 
@@ -520,9 +545,9 @@ namespace DiscordMusicBot {
             }
         }
 
-        #endregion
+#endregion
 
-        #region Helper
+#region Helper
 
         //Log own Messages to console
         public static void Print(string message, ConsoleColor color) {
@@ -563,9 +588,9 @@ namespace DiscordMusicBot {
         }
 
 
-        #endregion
+#endregion
 
-        #region Audio
+#region Audio
         //Audio: PCM | 48000hz | mp3
 
         //Get ffmpeg Audio Procecss
@@ -585,7 +610,7 @@ namespace DiscordMusicBot {
                 FileName = "ffplay",
                 Arguments = $"-i \"{path}\" -ac 2 -f s16le -ar 48000 pipe:1 -autoexit",
                 //UseShellExecute = false,    //TODO: true or false?
-                RedirectStandardOutput = true
+                RedirectStandardOutput = false
             };
 
             return new Process { StartInfo = ffplay };
@@ -597,7 +622,7 @@ namespace DiscordMusicBot {
             Process ffmpeg = GetFfmpeg(path);
             //Read FFmpeg output
             using (Stream output = ffmpeg.StandardOutput.BaseStream) {
-                using (AudioOutStream discord = _audio.CreatePCMStream(AudioApplication.Mixed, 1920)) {
+                using (AudioOutStream discord = _audio.CreatePCMStream(AudioApplication.Mixed, _voiceChannel.Bitrate)) {
 
                     //Adjust?
                     int bufferSize = 1024;
@@ -691,7 +716,7 @@ namespace DiscordMusicBot {
             }
         }
 
-        #endregion
+#endregion
 
         //Dispose this Object
         public void Dispose() {
@@ -699,7 +724,7 @@ namespace DiscordMusicBot {
             _disposeToken.Cancel();
 
             Print("Shutting down...", ConsoleColor.Red);
-
+            Print("Deleting songs in queue", ConsoleColor.Red);
             //Run File Delete on new Thread
             new Thread(() => {
                 foreach (var song in _queue) {
@@ -710,7 +735,6 @@ namespace DiscordMusicBot {
                     }
                 }
             }).Start();
-
             DisposeAsync().GetAwaiter().GetResult();
         }
     }

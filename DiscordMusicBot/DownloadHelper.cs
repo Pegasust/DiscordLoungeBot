@@ -44,6 +44,7 @@ namespace DiscordMusicBot {
         /// <returns>The Title of the Video or Song</returns>
         public static async Task<Tuple<string, string>> GetInfo(string url) {
             if (url.ToLower().Contains("youtube.com")) {
+                MusicBot.Print("File to play is from youtube.", ConsoleColor.Green);
                 return await GetInfoFromYouTube(url);
             } else {
                 throw new Exception("Video URL not supported!");
@@ -58,24 +59,27 @@ namespace DiscordMusicBot {
         /// <returns>The YouTube Video Title</returns>
         private static async Task<Tuple<string, string>> GetInfoFromYouTube(string url) {
             TaskCompletionSource<Tuple<string, string>> tcs = new TaskCompletionSource<Tuple<string, string>>();
-
+            MusicBot.Print("Creating new thread with youtube-dl", ConsoleColor.Red);
             new Thread(() => {
                 string title;
                 string duration;
 
                 //youtube-dl.exe
                 Process youtubedl;
-
+                string args = $"-s -e --get-duration {url}";
+                MusicBot.Print("In cmd: " + "youtube-dl " + args, ConsoleColor.Magenta);
                 //Get Video Title
                 ProcessStartInfo youtubedlGetTitle = new ProcessStartInfo() {
                     FileName = "youtube-dl",
-                    Arguments = $"-s -e --get-duration {url}",
-                    CreateNoWindow = true,
+                    Arguments = args,
+                    CreateNoWindow = false,
                     RedirectStandardOutput = true,
                     /*UseShellExecute = false*/     //Linux?
                 };
                 youtubedl = Process.Start(youtubedlGetTitle);
+                MusicBot.Print("youtube-dl started", ConsoleColor.Green);
                 youtubedl.WaitForExit();
+                MusicBot.Print("youtube-dl ended", ConsoleColor.Green);
                 //Read Title
                 string[] lines = youtubedl.StandardOutput.ReadToEnd().Split('\n');
                 
@@ -115,14 +119,15 @@ namespace DiscordMusicBot {
                 do {
                     file = Path.Combine(DownloadPath, "botsong" + ++count + ".mp3");
                 } while (File.Exists(file));
-
+                MusicBot.Print("File being downloaded: " + file, ConsoleColor.Gray);
                 //youtube-dl.exe
                 Process youtubedl;
-
+                string args = $"-x --audio-format mp3 -o \"{file.Replace(".mp3", ".%(ext)s")}\" {url}";
+                MusicBot.Print("In cmd: youtube-dl " + args,ConsoleColor.Gray);
                 //Download Video
                 ProcessStartInfo youtubedlDownload = new ProcessStartInfo() {
                     FileName = "youtube-dl",
-                    Arguments = $"-x --audio-format mp3 -o \"{file.Replace(".mp3", ".%(ext)s")}\" {url}",
+                    Arguments = args,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,
                     /*UseShellExecute = false*/     //Linux?
@@ -162,17 +167,19 @@ namespace DiscordMusicBot {
             new Thread(() => {
                 string file;
                 int count = 0;
+
                 do {
                     file = Path.Combine(DownloadPath, "tempvideo" + ++count + ".mp3");
                 } while (File.Exists(file));
-
+                MusicBot.Print("Downloading the song under " + file,ConsoleColor.Gray);
                 //youtube-dl.exe
                 Process youtubedl;
-
+                string args = $"--extract-audio --audio-format mp3 -o \"{file.Replace(".mp3", ".%(ext)s")}\" {url}";
+                MusicBot.Print("In cmd: " + "youutube-dl " + args,ConsoleColor.Magenta);
                 //Download Video
                 ProcessStartInfo youtubedlDownload = new ProcessStartInfo() {
                     FileName = "youtube-dl",
-                    Arguments = $"--extract-audio --audio-format mp3 -o \"{file.Replace(".mp3", ".%(ext)s")}\" {url}",
+                    Arguments = args,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,
                     /*UseShellExecute = false*/     //Linux?

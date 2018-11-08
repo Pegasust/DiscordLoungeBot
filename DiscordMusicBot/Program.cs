@@ -17,11 +17,27 @@ namespace DiscordMusicBot {
 
             try {
                 #region JSON.NET
-                string json = File.ReadAllText("config.json");
-                Config cfg = JsonConvert.DeserializeObject<Config>(json);
+                Config cfg;
+                //Create the config.json on first run
+                if (!File.Exists("config.json"))
+                {
+                    FileStream newConfig = File.Create("config.json");
+                    cfg = new Config();
+                    JsonSerializer serializer = new JsonSerializer();
+                    using (StreamWriter sw = new StreamWriter(newConfig))
+                    using (JsonWriter writer = new JsonTextWriter(sw))
+                    {
+                        serializer.Serialize(writer, cfg);
+                    }
+                }
+                else
+                {
+                    string json = File.ReadAllText("config.json");
+                    cfg = JsonConvert.DeserializeObject<Config>(json);
+                }
 
-                if (cfg == new Config())
-                    throw new Exception("Please insert values into Config.json!");
+                //if (cfg == new Config())
+                //    throw new Exception("Please insert values into Config.json!");
                 #endregion
 
                 #region TXT Reading
@@ -60,7 +76,7 @@ namespace DiscordMusicBot {
             try {
                 _cts = new CancellationTokenSource();
                 Bot = new MusicBot();
-
+                
                 //Async Thread Block
                 await Task.Delay(-1, _cts.Token);
             } catch (TaskCanceledException) {
