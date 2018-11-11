@@ -18,7 +18,7 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>TRACE;DEBUG;responsive</DefineConstants>
+    <DefineConstants>TRACE;responsive;TRACETIME</DefineConstants>
     <Optimize>true</Optimize>
   </PropertyGroup>
 

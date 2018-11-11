@@ -7,7 +7,13 @@ using System.Threading.Tasks;
 
 namespace DiscordMusicBot {
     internal class Program {
-        public static MusicBot Bot;
+        public static
+#if FALLBACK
+            MusicBot 
+#else
+            LoungeBot.LoungeBot
+#endif
+            Bot;
         private static CancellationTokenSource _cts;
 
         private static void Main(string[] args) {
@@ -16,7 +22,7 @@ namespace DiscordMusicBot {
             Console.WriteLine("(Press Ctrl + C or close this Window to exit Bot)");
 
             try {
-                #region JSON.NET
+#region JSON.NET
                 Config cfg;
                 //Create the config.json on first run
                 if (!File.Exists("config.json"))
@@ -38,9 +44,9 @@ namespace DiscordMusicBot {
 
                 //if (cfg == new Config())
                 //    throw new Exception("Please insert values into Config.json!");
-                #endregion
+#endregion
 
-                #region TXT Reading
+#region TXT Reading
                 //string[] config = File.ReadAllLines("config.txt");
                 //Config cfg = new Config() {
                 //    BotName = config[0].Split(':')[1],
@@ -50,7 +56,7 @@ namespace DiscordMusicBot {
                 //    ServerName = config[4].Split(':')[1],
                 //    Token = config[5].Split(':')[1],
                 //};
-                #endregion
+#endregion
             } catch (Exception e) {
                 MusicBot.Print("Your config.json has incorrect formatting, or is not readable!", ConsoleColor.Red);
                 MusicBot.Print(e.Message, ConsoleColor.Red);
@@ -75,7 +81,13 @@ namespace DiscordMusicBot {
         private static async Task Do() {
             try {
                 _cts = new CancellationTokenSource();
-                Bot = new MusicBot();
+                Bot = new
+#if FALLBACK
+                    MusicBot
+#else
+                    LoungeBot.LoungeBot
+#endif
+                    ();
                 
                 //Async Thread Block
                 await Task.Delay(-1, _cts.Token);

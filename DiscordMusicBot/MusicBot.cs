@@ -61,7 +61,21 @@ namespace DiscordMusicBot {
         public MusicBot() { Initialize(); }
 
         //init vars
-        public async void Initialize() {
+        public virtual async void Initialize()
+        {
+            SetupBot();
+
+            //Setup Audio
+            //_client.UsingAudio(x => { x.Mode = AudioMode.Outgoing; });
+
+            InitThread();
+
+            Status();
+        }
+
+        protected virtual async void SetupBot()
+        {
+
             //Init Config and Queue
             ReadConfig();
             _queue = new Queue<Tuple<string, string, string, string>>();
@@ -69,7 +83,8 @@ namespace DiscordMusicBot {
             _disposeToken = new CancellationTokenSource();
 
             //Init & Connect Client
-            _client = new DiscordSocketClient(new DiscordSocketConfig {
+            _client = new DiscordSocketClient(new DiscordSocketConfig
+            {
                 LogLevel = LogSeverity.Info
             });
 
@@ -90,25 +105,18 @@ namespace DiscordMusicBot {
 
             await _client.StartAsync();
             await _client.LoginAsync(TokenType.Bot, Information.Token);
-
-            //Setup Audio
-            //_client.UsingAudio(x => { x.Mode = AudioMode.Outgoing; });
-
-            InitThread();
-
-            Status();
         }
 
         #region Events
 
         //Connection Lost
-        private static Task Disconnected(Exception arg) {
+        protected static Task Disconnected(Exception arg) {
             Print($"Connection lost! ({arg.Message})", ConsoleColor.Red);
             return Task.CompletedTask;
         }
 
         //Connected
-        private static Task Connected() {
+        protected static Task Connected() {
             Console.Title = "Music Bot (Connected)";
 
             Print("Connected!", ConsoleColor.Green);
@@ -117,13 +125,13 @@ namespace DiscordMusicBot {
 
 
         //Pass Ready Event on to Async Method (so nothing blocks)
-        private Task OnReady() {
+        protected Task OnReady() {
             Ready();
             return Task.CompletedTask;
         }
 
         //On Bot ready
-        private async void Ready() {
+        protected virtual async void Ready() {
             Print("Ready!", ConsoleColor.Green);
 
             //"Playing Nothing :/"
@@ -155,7 +163,7 @@ namespace DiscordMusicBot {
         }
 
         //On Message Received (async)
-        private async void MessageReceived(SocketMessage socketMsg) {
+        protected virtual async void MessageReceived(SocketMessage socketMsg) {
             try {
                 #region Message Filtering
 
@@ -239,42 +247,7 @@ namespace DiscordMusicBot {
                     #region !add
 
                     case "!add":
-                        //Add Song to Queue
-                        if (parameter != null) {
-                            using (_textChannel.EnterTypingState()) {
-
-                                //Test for valid URL
-                                bool result = Uri.TryCreate(parameter, UriKind.Absolute, out Uri uriResult)
-                                          && (uriResult.Scheme == "http" || uriResult.Scheme == "https");
-
-                                //Answer
-                                if (result) {
-                                    try {
-                                        Print("Downloading Video at url: "+parameter, ConsoleColor.Magenta);
-
-                                        Tuple<string, string> info = await DownloadHelper.GetInfo(parameter);
-                                        Print($"Got info from url.\n Title: {info.Item1}, Duration: {info.Item2}", ConsoleColor.Green);
-
-                                        //Download
-                                        Print("Downloading file", ConsoleColor.Gray);
-                                        string file = await DownloadHelper.Download(parameter);
-                                        var vidInfo = new Tuple<string, string, string, string>(file, info.Item1, info.Item2, socketMsg.Author.ToString());
-
-                                        _queue.Enqueue(vidInfo);
-                                        Pause = false;
-                                        Print($"Song added to playlist! ({vidInfo.Item2} ({vidInfo.Item3}))!", ConsoleColor.Magenta);
-                                    } catch (Exception ex) {
-                                        Print($"Could not download Song! {ex.Message}", ConsoleColor.Red);
-                                        await SendMessage(
-                                            $"Sorry <@{socketMsg.Author.Id}>, unfortunately I can't play that Song!" +
-                                            ImABot);
-                                    }
-                                } else {
-                                    await _textChannel.SendMessageAsync(
-                                        $"Sorry <@{socketMsg.Author.Id}>, but that was not a valid URL!" + ImABot);
-                                }
-                            }
-                        }
+                        await AddSong(socketMsg, parameter);
                         break;
 
                     #endregion
@@ -282,42 +255,7 @@ namespace DiscordMusicBot {
                     #region !addPlaylist
 
                     case "!addPlaylist":
-                        //Add Song to Queue
-                        if (parameter != null) {
-                            using (_textChannel.EnterTypingState()) {
-
-                                //Test for valid URL
-                                bool result = Uri.TryCreate(parameter, UriKind.Absolute, out Uri uriResult)
-                                              && (uriResult.Scheme == "http" || uriResult.Scheme == "https");
-
-                                //Answer
-                                if (result) {
-                                    try {
-                                        Print("Downloading Playlist...", ConsoleColor.Magenta);
-
-                                        Tuple<string, string> info = await DownloadHelper.GetInfo(parameter);
-                                        await SendMessage($"<@{socketMsg.Author.Id}> requested Playlist \"{info.Item1}\" ({info.Item2})! Downloading now..." +
-                                                          ImABot);
-
-                                        //Download
-                                        string file = await DownloadHelper.DownloadPlaylist(parameter);
-                                        var vidInfo = new Tuple<string, string, string, string>(file, info.Item1, info.Item2, socketMsg.Author.ToString());
-
-                                        _queue.Enqueue(vidInfo);
-                                        Pause = false;
-                                        Print($"Playlist added to playlist! (\"{vidInfo.Item2}\" ({vidInfo.Item2}))!", ConsoleColor.Magenta);
-                                    } catch (Exception ex) {
-                                        Print($"Could not download Playlist! {ex.Message}", ConsoleColor.Red);
-                                        await SendMessage(
-                                            $"Sorry <@{socketMsg.Author.Id}>, unfortunately I can't play that Playlist!" +
-                                            ImABot);
-                                    }
-                                } else {
-                                    await _textChannel.SendMessageAsync(
-                                        $"Sorry <@{socketMsg.Author.Id}>, but that was not a valid URL!" + ImABot);
-                                }
-                            }
-                        }
+                        await AddPlaylist(socketMsg, parameter);
                         break;
 
                     #endregion
@@ -325,10 +263,7 @@ namespace DiscordMusicBot {
                     #region !pause
 
                     case "!pause":
-                        //Pause Song Playback
-                        Pause = true;
-                        Print("Playback paused!", ConsoleColor.Magenta);
-                        await _textChannel.SendMessageAsync($"<@{socketMsg.Author}> paused playback!" + ImABot);
+                        await PauseStream(socketMsg);
                         break;
 
                     #endregion
@@ -336,10 +271,7 @@ namespace DiscordMusicBot {
                     #region !play
 
                     case "!play":
-                        //Continue Song Playback
-                        Pause = false;
-                        Print("Playback continued!", ConsoleColor.Magenta);
-                        await _textChannel.SendMessageAsync($"<@{socketMsg.Author}> resumed playback!" + ImABot);
+                        await ResumeStream(socketMsg);
                         break;
 
                     #endregion
@@ -347,12 +279,7 @@ namespace DiscordMusicBot {
                     #region !clear
 
                     case "!clear":
-                        //Clear Queue
-                        Pause = true;
-                        _queue.Clear();
-                        Print("Playlist cleared!", ConsoleColor.Magenta);
-                        await SendMessage(
-                            $"<@{socketMsg.Author.Id}> cleared the Playlist!" + ImABot);
+                        await ClearSongQueue(socketMsg);
                         break;
 
                     #endregion
@@ -360,15 +287,7 @@ namespace DiscordMusicBot {
                     #region !come
 
                     case "!come":
-                        _audio?.Dispose();
-                        _voiceChannel = (socketMsg.Author as IGuildUser)?.VoiceChannel;
-                        if (_voiceChannel == null) {
-                            Print("Error joining Voice Channel!", ConsoleColor.Red);
-                            await socketMsg.Channel.SendMessageAsync($"I can't connect to your Voice Channel <@{socketMsg.Author}>!" + ImABot);
-                        } else {
-                            Print($"Joined Voice Channel \"{_voiceChannel.Name}\"", ConsoleColor.Magenta);
-                            _audio = await _voiceChannel.ConnectAsync();
-                        }
+                        await JoinVoiceChannel(socketMsg);
                         break;
 
                     #endregion
@@ -376,10 +295,7 @@ namespace DiscordMusicBot {
                     #region !update
 
                     case "!update":
-                        //Update Config
-                        ReadConfig();
-                        Print("User Config Updated!", ConsoleColor.Magenta);
-                        await dm.SendMessageAsync("Updated Permitted Users List!");
+                        await ForceReadConfig(dm);
                         break;
 
                     #endregion
@@ -387,19 +303,14 @@ namespace DiscordMusicBot {
                     #region !skip
 
                     case "!skip":
-                        Print("Song Skipped!", ConsoleColor.Magenta);
-                        await _textChannel.SendMessageAsync($"<@{socketMsg.Author}> skipped **{_queue.Peek().Item2}**!");
-                        //Skip current Song
-                        Skip = true;
-                        Pause = false;
+                        await NextSongInQueue(socketMsg);
                         break;
 
                     #endregion
 #if responsive
                     #region !say
                     case "!say":
-                        Print("Printing "+parameter+" on text channel.",ConsoleColor.Gray);
-                        await SendMessage(parameter);
+                        await LocalSay(parameter);
                         break;
                     #endregion
 #endif
@@ -412,6 +323,172 @@ namespace DiscordMusicBot {
 
             } catch (Exception ex) {
                 Print(ex.Message, ConsoleColor.Red);
+            }
+        }
+
+        protected virtual async Task LocalSay(string parameter)
+        {
+            Print("Printing " + parameter + " on text channel.", ConsoleColor.Gray);
+            await SendMessage(parameter);
+        }
+
+        protected virtual async Task NextSongInQueue(SocketMessage socketMsg)
+        {
+            Print("Song Skipped!", ConsoleColor.Magenta);
+            await _textChannel.SendMessageAsync($"<@{socketMsg.Author}> skipped **{_queue.Peek().Item2}**!");
+            //Skip current Song
+            Skip = true;
+            Pause = false;
+        }
+
+        protected virtual async Task ForceReadConfig(IDMChannel dm)
+        {
+
+            //Update Config
+            ReadConfig();
+            Print("User Config Updated!", ConsoleColor.Magenta);
+            await dm.SendMessageAsync("Updated Permitted Users List!");
+        }
+
+        protected virtual async Task JoinVoiceChannel(SocketMessage socketMsg)
+        {
+            _audio?.Dispose();
+            _voiceChannel = (socketMsg.Author as IGuildUser)?.VoiceChannel;
+            if (_voiceChannel == null)
+            {
+                Print("Error joining Voice Channel!", ConsoleColor.Red);
+                await socketMsg.Channel.SendMessageAsync($"I can't connect to your Voice Channel <@{socketMsg.Author}>!" + ImABot);
+            }
+            else
+            {
+                Print($"Joined Voice Channel \"{_voiceChannel.Name}\"", ConsoleColor.Magenta);
+                _audio = await _voiceChannel.ConnectAsync();
+            }
+        }
+
+        protected virtual async Task ClearSongQueue(SocketMessage socketMsg)
+        {
+
+            //Clear Queue
+            Pause = true;
+            _queue.Clear();
+            Print("Playlist cleared!", ConsoleColor.Magenta);
+            await SendMessage(
+                $"<@{socketMsg.Author.Id}> cleared the Playlist!" + ImABot);
+        }
+
+        protected virtual async Task ResumeStream(SocketMessage socketMsg)
+        {
+
+            //Continue Song Playback
+            Pause = false;
+            Print("Playback continued!", ConsoleColor.Magenta);
+            await _textChannel.SendMessageAsync($"<@{socketMsg.Author}> resumed playback!" + ImABot);
+        }
+
+        protected virtual async Task PauseStream(SocketMessage socketMsg)
+        {
+
+            //Pause Song Playback
+            Pause = true;
+            Print("Playback paused!", ConsoleColor.Magenta);
+            await _textChannel.SendMessageAsync($"<@{socketMsg.Author}> paused playback!" + ImABot);
+        }
+
+        protected virtual async Task AddPlaylist(SocketMessage socketMsg, string parameter)
+        {
+            //Add Songs to Queue
+            if (parameter != null)
+            {
+                using (_textChannel.EnterTypingState())
+                {
+
+                    //Test for valid URL
+                    bool result = Uri.TryCreate(parameter, UriKind.Absolute, out Uri uriResult)
+                                  && (uriResult.Scheme == "http" || uriResult.Scheme == "https");
+
+                    //Answer
+                    if (result)
+                    {
+                        try
+                        {
+                            Print("Downloading Playlist...", ConsoleColor.Magenta);
+
+                            Tuple<string, string> info = await DownloadHelper.GetInfo(parameter);
+                            await SendMessage($"<@{socketMsg.Author.Id}> requested Playlist \"{info.Item1}\" ({info.Item2})! Downloading now..." +
+                                              ImABot);
+
+                            //Download
+                            string file = await DownloadHelper.DownloadPlaylist(parameter);
+                            var vidInfo = new Tuple<string, string, string, string>(file, info.Item1, info.Item2, socketMsg.Author.ToString());
+
+                            _queue.Enqueue(vidInfo);
+                            Pause = false;
+                            Print($"Playlist added to playlist! (\"{vidInfo.Item2}\" ({vidInfo.Item2}))!", ConsoleColor.Magenta);
+                        }
+                        catch (Exception ex)
+                        {
+                            Print($"Could not download Playlist! {ex.Message}", ConsoleColor.Red);
+                            await SendMessage(
+                                $"Sorry <@{socketMsg.Author.Id}>, unfortunately I can't play that Playlist!" +
+                                ImABot);
+                        }
+                    }
+                    else
+                    {
+                        await _textChannel.SendMessageAsync(
+                            $"Sorry <@{socketMsg.Author.Id}>, but that was not a valid URL!" + ImABot);
+                    }
+                }
+            }
+        }
+
+        protected virtual async Task AddSong(SocketMessage socketMsg, string parameter)
+        {
+
+            //Add Song to Queue
+            if (parameter != null)
+            {
+                using (_textChannel.EnterTypingState())
+                {
+
+                    //Test for valid URL
+                    bool result = Uri.TryCreate(parameter, UriKind.Absolute, out Uri uriResult)
+                              && (uriResult.Scheme == "http" || uriResult.Scheme == "https");
+
+                    //Answer
+                    if (result)
+                    {
+                        try
+                        {
+                            Print("Downloading Video at url: " + parameter, ConsoleColor.Magenta);
+
+                            Tuple<string, string> info = await DownloadHelper.GetInfo(parameter);
+                            Print($"Got info from url.\n Title: {info.Item1}, Duration: {info.Item2}", ConsoleColor.Green);
+
+                            //Download
+                            Print("Downloading file", ConsoleColor.Gray);
+                            string file = await DownloadHelper.Download(parameter);
+                            var vidInfo = new Tuple<string, string, string, string>(file, info.Item1, info.Item2, socketMsg.Author.ToString());
+
+                            _queue.Enqueue(vidInfo);
+                            Pause = false;
+                            Print($"Song added to playlist! ({vidInfo.Item2} ({vidInfo.Item3}))!", ConsoleColor.Magenta);
+                        }
+                        catch (Exception ex)
+                        {
+                            Print($"Could not download Song! {ex.Message}", ConsoleColor.Red);
+                            await SendMessage(
+                                $"Sorry <@{socketMsg.Author.Id}>, unfortunately I can't play that Song!" +
+                                ImABot);
+                        }
+                    }
+                    else
+                    {
+                        await _textChannel.SendMessageAsync(
+                            $"Sorry <@{socketMsg.Author.Id}>, but that was not a valid URL!" + ImABot);
+                    }
+                }
             }
         }
 
@@ -569,7 +646,7 @@ namespace DiscordMusicBot {
         }
 
         //Read Config from File
-        public void ReadConfig() {
+        public virtual void ReadConfig() {
             if (!File.Exists("users.txt"))
                 File.Create("users.txt").Dispose();
 
@@ -581,7 +658,7 @@ namespace DiscordMusicBot {
         }
 
         //Init Player Thread
-        public void InitThread() {
+        public virtual void InitThread() {
             //TODO: Main Thread or New Thread?
             //MusicPlay();
             new Thread(MusicPlay).Start();
@@ -665,6 +742,7 @@ namespace DiscordMusicBot {
                         }
                     }
                     await discord.FlushAsync();
+                    Print("AudioStream Flushed", ConsoleColor.Green);
                 }
             }
         }
@@ -719,7 +797,7 @@ namespace DiscordMusicBot {
 #endregion
 
         //Dispose this Object
-        public void Dispose() {
+        public virtual void Dispose() {
             IsDisposed = true;
             _disposeToken.Cancel();
 

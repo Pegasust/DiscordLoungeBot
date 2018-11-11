@@ -24,7 +24,7 @@ namespace DiscordMusicBot {
         public string VoiceChannelName = "General";
 
         public static bool operator ==(Config cfg1, Config cfg2) {
-            return cfg1 is null ? cfg2 is null : cfg1.Equals(cfg1);
+            return cfg1 is null ? cfg2 is null : cfg1.Equals(cfg2);
         }
 
         public static bool operator !=(Config cfg1, Config cfg2) {
