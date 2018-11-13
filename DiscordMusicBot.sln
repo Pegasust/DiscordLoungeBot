@@ -3,20 +3,40 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26403.7
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiscordMusicBot", "DiscordMusicBot\DiscordMusicBot.csproj", "{CD6E6242-56B1-454D-8733-AE2E751DDF80}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DiscordMusicBot", "DiscordMusicBot\DiscordMusicBot.csproj", "{CD6E6242-56B1-454D-8733-AE2E751DDF80}"
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "YoutubeHelper", "YoutubeHelper\YoutubeHelper.shproj", "{914D3C7D-A3F9-4998-BAFB-26E5699AD213}"
 EndProject
 Global
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		YoutubeHelper\YoutubeHelper.projitems*{914d3c7d-a3f9-4998-bafb-26e5699ad213}*SharedItemsImports = 13
+	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
 		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{CD6E6242-56B1-454D-8733-AE2E751DDF80}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{CD6E6242-56B1-454D-8733-AE2E751DDF80}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CD6E6242-56B1-454D-8733-AE2E751DDF80}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CD6E6242-56B1-454D-8733-AE2E751DDF80}.Debug|x64.Build.0 = Debug|Any CPU
+		{CD6E6242-56B1-454D-8733-AE2E751DDF80}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CD6E6242-56B1-454D-8733-AE2E751DDF80}.Debug|x86.Build.0 = Debug|Any CPU
 		{CD6E6242-56B1-454D-8733-AE2E751DDF80}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CD6E6242-56B1-454D-8733-AE2E751DDF80}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CD6E6242-56B1-454D-8733-AE2E751DDF80}.Release|x64.ActiveCfg = Release|Any CPU
+		{CD6E6242-56B1-454D-8733-AE2E751DDF80}.Release|x64.Build.0 = Release|Any CPU
+		{CD6E6242-56B1-454D-8733-AE2E751DDF80}.Release|x86.ActiveCfg = Release|Any CPU
+		{CD6E6242-56B1-454D-8733-AE2E751DDF80}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {196225AA-A716-4017-AEB6-0526184630BE}
 	EndGlobalSection
 EndGlobal

@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <SharedGUID>914d3c7d-a3f9-4998-bafb-26e5699ad213</SharedGUID>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration">
+    <Import_RootNamespace>YoutubeHelper</Import_RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Generic.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)YoutubeDL.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)YoutubeSearch.cs" />
+  </ItemGroup>
+</Project>

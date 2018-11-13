@@ -61,7 +61,7 @@ namespace DiscordMusicBot {
         public MusicBot() { Initialize(); }
 
         //init vars
-        public virtual async void Initialize()
+        public virtual void Initialize()
         {
             SetupBot();
 

@@ -61,7 +61,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Commands\" />
     <Folder Include="LoungeBot\Messages\" />
   </ItemGroup>
 

@@ -23,6 +23,12 @@ namespace DiscordMusicBot {
         public string TextChannelName = "bot-console";
         public string VoiceChannelName = "General";
 
+        internal LoungeBot.SerializedConfig getSConfig()
+        {
+            return new LoungeBot.SerializedConfig(ClientId, ClientSecret, BotName, 
+                Token, ServerName,
+                TextChannelName, VoiceChannelName);
+        }
         public static bool operator ==(Config cfg1, Config cfg2) {
             return cfg1 is null ? cfg2 is null : cfg1.Equals(cfg2);
         }
