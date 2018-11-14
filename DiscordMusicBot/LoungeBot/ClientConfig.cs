@@ -7,9 +7,11 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
-
+using DiscordMusicBot.LoungeBot;
+using Discord;
 namespace DiscordMusicBot.LoungeBot
 {
+    //Scroll down for runtime commands
     internal static class ClientConfig
     {
         internal enum ConfigPriority
@@ -227,5 +229,76 @@ namespace DiscordMusicBot.LoungeBot
 
         }
         #endregion
+    }
+}
+namespace DiscordMusicBot.Commands
+{
+    internal static partial class CommandService
+    {
+        enum FieldChanging
+        {
+            none = 0,
+            botName,
+            serverName,
+            textChannel,
+            voiceChannel
+        }
+        private static FieldChanging GetFieldChanging(string identifier)
+        {
+            if (botNameField.Contains(identifier))
+            {
+                return FieldChanging.botName;
+            }
+            if (serverNameField.Contains(identifier))
+            {
+                return FieldChanging.serverName;
+            }
+            if (textChannelField.Contains(identifier))
+            {
+                return FieldChanging.textChannel;
+            }
+            if (voiceChannelField.Contains(identifier))
+            {
+                return FieldChanging.voiceChannel;
+            }
+            return FieldChanging.none;
+        }
+        static readonly string[] botNameField = {"bot_name", "-b"};
+        static readonly string[] serverNameField = {"server_name", "-s"};
+        static readonly string[] textChannelField = {"text_channel", "-t"};
+        static readonly string[] voiceChannelField = {"voice_channel", "-v"};
+        internal static async Task ChangeSerializableFieldCmd(string[] parameters)
+        {
+            Action x = () => { } ;
+            int i = childStartIndex;
+            for (; i < parameters.Length; i++)
+            {
+                if (i + 1 >= parameters.Length)
+                {
+                    LogHelper.Logln("Commands that change serializable field must include which field to change and the new value.",
+                        LogType.Warning);
+                    await ReplyAsync("Command must include which field to change and the new value.");
+                    return;
+                }
+                switch (GetFieldChanging(parameters[i]))
+                {
+                    case FieldChanging.botName:
+                        x += ()=>ClientConfig.botName.ChangeValue(parameters[++i]);
+                        break;
+                    case FieldChanging.serverName:
+                        x += () => ClientConfig.serverName.ChangeValue(parameters[++i]);
+                        break;
+                    case FieldChanging.textChannel:
+                        x += () => ClientConfig.textChannel.ChangeValue(parameters[++i]);
+                        break;
+                    case FieldChanging.voiceChannel:
+                        x += () => ClientConfig.voiceChannel.ChangeValue(parameters[++i]);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            await Task.Run(x);
+        }
     }
 }

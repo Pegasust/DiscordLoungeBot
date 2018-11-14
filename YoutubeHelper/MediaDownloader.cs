@@ -4,7 +4,7 @@ using System.Text;
 
 namespace YoutubeHelper
 {
-    internal static class YoutubeDL
+    public static partial class MediaDownloader
     {
 
     }

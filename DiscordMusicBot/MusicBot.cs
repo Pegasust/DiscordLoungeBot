@@ -102,7 +102,6 @@ namespace DiscordMusicBot {
             _client.MessageReceived += OnMessageReceived;
 
             Console.Title = "Music Bot (Connecting...)";
-
             await _client.StartAsync();
             await _client.LoginAsync(TokenType.Bot, Information.Token);
         }
