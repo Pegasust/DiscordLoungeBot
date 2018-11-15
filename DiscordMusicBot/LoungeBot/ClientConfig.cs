@@ -1,4 +1,12 @@
-﻿using System;
+﻿#if !FORCE_NO_MENTION_PREFIX
+#if !MENTION_INVOKE_COMMAND
+#if !PREFIX_INVOKE_COMMAND
+#define MENTION_INVOKE_COMMAND
+#define PREFIX_INVOKE_COMMAND
+#endif
+#endif
+#endif
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.IO;
@@ -30,6 +38,9 @@ namespace DiscordMusicBot.LoungeBot
             }
         }
         internal const string configFileName = "LConfig.txt";
+#if MENTION_INVOKE_COMMAND
+        internal static readonly ulong clientIDNum;
+#endif
         internal static readonly string clientID;
         internal static readonly string clientSecret;
         internal static readonly string token;
@@ -41,6 +52,9 @@ namespace DiscordMusicBot.LoungeBot
         {
             SerializedConfig config = FileConfig;
             clientID = config.clientID;
+#if MENTION_INVOKE_COMMAND
+            ulong.TryParse(clientID,out clientIDNum);
+#endif
             clientSecret = config.clientSecret;
             token = config.token;
             botName = new SerializableField(config.botName);
@@ -270,7 +284,7 @@ namespace DiscordMusicBot.Commands
         internal static async Task ChangeSerializableFieldCmd(string[] parameters)
         {
             Action x = () => { } ;
-            int i = childStartIndex;
+            int i = arrayStartIndex;
             for (; i < parameters.Length; i++)
             {
                 if (i + 1 >= parameters.Length)

@@ -13,7 +13,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-
+using DiscordMusicBot.Commands;
 using LOutput = DiscordMusicBot.LoungeBot.LogHelper;
 namespace DiscordMusicBot.LoungeBot
 {
@@ -25,6 +25,7 @@ namespace DiscordMusicBot.LoungeBot
     }
     internal class LoungeBot : IDisposable
     {
+        const string isCommandSuffix = "<!>";
         private DiscordSocketClient client;
         private IVoiceChannel voiceChannel;
         private ITextChannel textChannel;
@@ -101,5 +102,31 @@ namespace DiscordMusicBot.LoungeBot
             client.Dispose();
         }
         #endregion
+
+        internal Task OnMessageReceived(SocketMessage sMsg)
+        {
+            CheckForCommand(sMsg);
+            return Task.CompletedTask;
+        }
+        protected virtual async void CheckForCommand(SocketMessage sMsg)
+        {
+            if (sMsg.Author.Id == client.CurrentUser.Id)
+            {
+                return;
+            }
+            string identifier = sMsg.Author.IsBot ? "[BOT]" : "";
+            LOutput.Log($"{identifier} [{sMsg.Author}]: {sMsg.Content}");
+            int startIndex = await CommandServiceHelper.CommandSignCheck(sMsg.Content);
+            if (startIndex == CommandServiceHelper.NOT_COMMAND)
+            {
+                //Not command
+                LOutput.Log("\n");
+                await sMsg.DeleteAsync();
+            }
+            #region IsCommand
+            LOutput.Logln(" " + isCommandSuffix);
+            await CommandService.ExecuteAsync(sMsg.Content, sMsg, startIndex);
+            #endregion
+        }
     }
 }

@@ -23,9 +23,16 @@ namespace DiscordMusicBot.Commands
 #if PREFIX_INVOKE_COMMAND
         internal const char prefix = '~';
 #endif
-        internal const int childStartIndex = 1;
+        internal const int arrayStartIndex = 1;
         #region Invokers
         const string changeLConfigField = "changelconfig";
+        static async void ChangeLConfigField(string[] param)
+        {
+            BenchTime.begin();
+            await ChangeSerializableFieldCmd(param);
+            BenchTime.SendResult("ChangeLConfigField took ", "ms.");
+        }
+
         #endregion
         private static SocketUserMessage umsg;
         private static ISocketMessageChannel m_MsgChannel
@@ -59,14 +66,20 @@ namespace DiscordMusicBot.Commands
         {
             await umsg.DeleteAsync();
         }
-        internal static async Task ExecuteAsync(string command, SocketMessage uMsg)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="command">Must not include signs of command</param>
+        /// <param name="uMsg"></param>
+        /// <returns></returns>
+        internal static async Task ExecuteAsync(string command, SocketMessage uMsg, int startIndex = 0)
         {
             umsg = uMsg as SocketUserMessage;
-            string[] arr = await CommandServiceHelper.CommandSplit(command);
+            string[] arr = await CommandServiceHelper.CommandSplit(command, startIndex);
             switch (arr[0])
             {
                 case changeLConfigField:
-                    await ChangeSerializableFieldCmd(arr);
+                    ChangeLConfigField(arr);
                     break;
             }
         }
@@ -89,15 +102,25 @@ namespace DiscordMusicBot.Commands
     }
     internal static class CommandServiceHelper
     {
+        internal const int NOT_COMMAND = -2;
         static readonly char[] splitter = { ' ' };
         static readonly char[] nester = { '\'', '\"' };
-        internal static async Task<string[]> CommandSplit(string command)
+        internal static string MentionFormat(string id)
         {
-            List<string> result = new List<string>();
+            return $"<@{id}>";
+        }
+        internal static string MentionFormat(ulong id)
+        {
+            return $"<@{id}>";
+        }
+        internal static async Task<string[]> CommandSplit(string command, int startIndex = 0)
+        {
+            BenchTime.begin();
+            List<string> result = new List<string>((command.Length-startIndex)/3);
             int a = 0;
             string str = "";
             bool openedNester = false;
-            for (int i = 0; i < command.Length; i++)
+            for (int i = startIndex; i < command.Length; i++)
             {
                 if (!openedNester)
                 {
@@ -146,20 +169,66 @@ namespace DiscordMusicBot.Commands
             }
             //Done with the processing
             string[] resultArr = result.ToArray();
+            BenchTime.SendResult("Splitting command took ", "ms.");
             return resultArr;
         }
         /// <summary>
-        /// Out:
-        /// -1: Not command
-        /// 0 or up: starting index
+        /// Out: startIndex
+        /// -2: not command
+        /// -1 or up: starting index
         /// </summary>
         /// <param name="msg"></param>
         /// <returns></returns>
-        internal static async Task<int> IsCommand(string msg)
+        internal static async Task<int> CommandSignCheck(string msg)
+        {
+            int startIndex = NOT_COMMAND;
+#if PREFIX_INVOKE_COMMAND
+            if (msg[0] == CommandService.prefix)
+            {
+                return 1;
+            }
+#endif
+#if MENTION_INVOKE_COMMAND
+            startIndex = await MentionedCheck(msg);
+#endif
+            return startIndex;
+        }
+        /// <summary>
+        /// Out:
+        /// -2: Not command
+        /// -1 or up: starting index
+        /// </summary>
+        /// <param name="msg"></param>
+        /// <returns></returns>
+        internal static async Task<int> MentionedCheck(string msg)
         {
 #if MENTION_INVOKE_COMMAND
-            
+            return await Task.Run(() => SMentionedCheck(msg));
+#else
+            Print("Mentioned Check should not be called!", LogType.Warning);
+            return NOT_COMMAND;
 #endif
+        }
+        private static int SMentionedCheck(string msg)
+        {
+            #region NEED OPTIMIZATION
+            string mentionString = MentionFormat(ClientConfig.clientID);
+            int i = 0;
+            for (; i < mentionString.Length; i++)
+            {
+                if (msg[i] != mentionString[i])
+                {
+                    return NOT_COMMAND;
+                }
+            }
+            return ++i;
+            #endregion
+        }
+
+        internal static async Task<string> CommandFromMessage(string msg)
+        {
+            int startIndex = await CommandSignCheck(msg);
+            return msg.Substring(startIndex);
         }
     }
 
