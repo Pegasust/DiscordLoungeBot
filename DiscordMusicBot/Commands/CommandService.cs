@@ -18,6 +18,10 @@ using Discord.WebSocket;
 
 namespace DiscordMusicBot.Commands
 {
+    /// <summary>
+    /// Upon creating an instance of this class, always go to Commands/CommandService and add
+    /// new const string in region invokers nad new async void that gets called by the invoker
+    /// </summary>
     internal static partial class CommandService
     {
 #if PREFIX_INVOKE_COMMAND
