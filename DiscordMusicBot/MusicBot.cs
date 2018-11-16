@@ -768,7 +768,7 @@ namespace DiscordMusicBot {
                         if (!pause) {
                             //Get Song
                             var song = _queue.Peek();
-                            //Update "Playing .."
+                            //Update "Playing .."   
                             await _client.SetGameAsync(song.Item2, song.Item1);
                             Print($"Now playing: {song.Item2} ({song.Item3})", ConsoleColor.Magenta);
                             await SendMessage($"Now playing: **{song.Item2}** ({song.Item3})");

@@ -22,6 +22,13 @@ namespace DiscordMusicBot.LoungeBot
     //Scroll down for runtime commands
     internal static class ClientConfig
     {
+        private static IFormatter serializationFormatter
+        {
+            get
+            {
+                return new NamelessFormatter();
+            }
+        }
         internal enum ConfigPriority
         {
             RuntimeChanges,
@@ -34,7 +41,24 @@ namespace DiscordMusicBot.LoungeBot
         {
             get
             {
-                return Deserialize(configFileName, new BinaryFormatter());
+                SerializedConfig config = Deserialize(configFileName, serializationFormatter);
+#if DEBUG
+                LogHelper.Logln("Config deserialized", LogType.Debug);
+                bool compareConfigToNull = config is null;
+                LogHelper.Logln("Config is null = " + compareConfigToNull, LogType.Debug);
+#endif
+                if (
+#if !DEBUG
+                    config is null
+#else
+                    compareConfigToNull
+#endif
+                    )
+                {
+                    config = SerializedConfig.Nameless;
+                    Serialize(config, configFileName, serializationFormatter);
+                }
+                return config;
             }
         }
         internal const string configFileName = "LConfig.txt";
@@ -50,6 +74,9 @@ namespace DiscordMusicBot.LoungeBot
         internal static SerializableField voiceChannel;
         static ClientConfig()
         {
+#if DEBUG
+            LogHelper.Logln("ClientConfig is being initialized.",LogType.Debug);
+#endif
             SerializedConfig config = FileConfig;
             clientID = config.clientID;
 #if MENTION_INVOKE_COMMAND
@@ -61,6 +88,7 @@ namespace DiscordMusicBot.LoungeBot
             serverName = new SerializableField(config.serverName);
             textChannel = new SerializableField(config.textChannelName);
             voiceChannel = new SerializableField(config.voiceChannelName);
+            LogHelper.Logln("ClientConfig initialized.", LogType.Success);
         }
         internal static void ApplyConfigFile(ConfigPriority priority = ConfigPriority.RuntimeChanges)
         {
@@ -94,7 +122,7 @@ namespace DiscordMusicBot.LoungeBot
             if (SerializableField.needsToReserialize)
             {
                 new Thread(()=>Serialize(new SerializedConfig(clientID, clientSecret, botName.value, token,
-                    serverName.value, textChannel.value, voiceChannel.value), configFileName, new BinaryFormatter())).Start();
+                    serverName.value, textChannel.value, voiceChannel.value), configFileName, serializationFormatter)).Start();
             }
         }
         private static SerializedConfig Deserialize(string filePath, IFormatter formatter)
@@ -118,6 +146,7 @@ namespace DiscordMusicBot.LoungeBot
             }
         }
     }
+
     internal class SerializableField
     {
         internal static bool needsToReserialize = false;
@@ -138,6 +167,10 @@ namespace DiscordMusicBot.LoungeBot
                 needsToReserialize = true;
                 value = newValue;
             }
+        }
+        public override string ToString()
+        {
+            return value;
         }
     }
     [Serializable]
@@ -220,7 +253,7 @@ namespace DiscordMusicBot.LoungeBot
             hash.Add(voiceChannelName);
             return hash.ToHashCode();
         }
-        #region Serialization/Deserialization
+#region Serialization/Deserialization
         public void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             info.AddValue("client_id", clientID);
@@ -242,7 +275,7 @@ namespace DiscordMusicBot.LoungeBot
             voiceChannelName = info.GetString("auto_connect_voice_channel");
 
         }
-        #endregion
+#endregion
     }
 }
 namespace DiscordMusicBot.Commands
@@ -281,10 +314,10 @@ namespace DiscordMusicBot.Commands
         static readonly string[] serverNameField = {"server_name", "-s"};
         static readonly string[] textChannelField = {"text_channel", "-t"};
         static readonly string[] voiceChannelField = {"voice_channel", "-v"};
-        internal static async Task ChangeSerializableFieldCmd(string[] parameters)
+        internal static async Task ChangeSerializableFieldCmd(string[] parameters, bool isMainModule = false)
         {
             Action x = () => { } ;
-            int i = arrayStartIndex;
+            int i = arrayStartIndex - (isMainModule?1:0);
             for (; i < parameters.Length; i++)
             {
                 if (i + 1 >= parameters.Length)

@@ -15,10 +15,11 @@
     <PackageTags>Discord Music Bot YouTube</PackageTags>
     <AssemblyVersion>1.0.0.1</AssemblyVersion>
     <FileVersion>1.0.0.1</FileVersion>
+    <LangVersion>7.2</LangVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>TRACE;responsive;TRACETIME</DefineConstants>
+    <DefineConstants>TRACE;responsive;TRACETIME;WINDOWS</DefineConstants>
     <Optimize>true</Optimize>
   </PropertyGroup>
 
@@ -63,5 +64,7 @@
   <ItemGroup>
     <Folder Include="LoungeBot\Messages\" />
   </ItemGroup>
+
+  <Import Project="..\YoutubeHelper\YoutubeHelper.projitems" Label="Shared" />
 
 </Project>

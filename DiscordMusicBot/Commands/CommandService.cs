@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using Discord;
 using Discord.WebSocket;
+using CommandModule = System.Collections.Generic.KeyValuePair<string, DiscordMusicBot.Commands.CommandService.Module>;
 
 namespace DiscordMusicBot.Commands
 {
@@ -29,14 +30,50 @@ namespace DiscordMusicBot.Commands
 #endif
         internal const int arrayStartIndex = 1;
         #region Invokers
-        const string changeLConfigField = "changelconfig";
-        static async void ChangeLConfigField(string[] param)
+        internal enum Module
+        {
+            None,
+            ChangeLConfig,
+            AudioService,
+        }
+        /// <summary>
+        /// Users can input the immediate command without specifying the main module.
+        /// EX:
+        /// mainModule = AudioService;
+        /// User input: (command) play [url]
+        /// is acceptable.
+        /// Alternatively, user can also input: (command) audio play [url] for the full name.
+        /// </summary>
+        private static Module mainModule = Module.AudioService;
+        const string changeLConfigField = "changelconfigfield";
+        static async void ChangeLConfigField(string[] param, bool isMain = false)
         {
             BenchTime.begin();
-            await ChangeSerializableFieldCmd(param);
+            await ChangeSerializableFieldCmd(param, isMain);
             BenchTime.SendResult("ChangeLConfigField took ", "ms.");
         }
-
+        const string audioService = "audio";
+        static async void AudioService(string[] param, bool isMain = false)
+        {
+            await AudioServiceCommand(param, isMain);
+        }
+        static readonly Dictionary<string, Module> moduleLookUp = new Dictionary<string, Module>()
+            {
+            { changeLConfigField,Module.ChangeLConfig },
+            { audioService, Module.AudioService },
+            };
+        private static void ExecuteModule(string[] param, bool isMainModule, Module module)
+        {
+            switch (module)
+            {
+                case Module.AudioService:
+                    AudioService(param, isMainModule);
+                    break;
+                case Module.ChangeLConfig:
+                    ChangeLConfigField(param, isMainModule);
+                    break;
+            }
+        }
         #endregion
         private static SocketUserMessage umsg;
         private static ISocketMessageChannel m_MsgChannel
@@ -80,11 +117,36 @@ namespace DiscordMusicBot.Commands
         {
             umsg = uMsg as SocketUserMessage;
             string[] arr = await CommandServiceHelper.CommandSplit(command, startIndex);
-            switch (arr[0])
+#if DEBUG
+            LogHelper.Logln("Command: " + string.Join(' ', arr),LogType.Debug);
+#endif
+            Module moduleExecuting;
+            if (moduleLookUp.TryGetValue(arr[0], out moduleExecuting))
             {
-                case changeLConfigField:
-                    ChangeLConfigField(arr);
-                    break;
+                ExecuteModule(arr, false, moduleExecuting);
+            }
+            else
+            {
+                //Core commands
+                switch (arr[0])
+                {
+                    case "mainmodule":
+                        if (arr.Length < 2 || arr.Length > 4)
+                        {
+                            LogHelper.Logln("Attempting to execute main module command with invalid # of params.", LogType.Warning);
+                            await ReplyAsync("Please use mainmodule command with only one param.");
+                            return;
+                        }
+                        if (moduleLookUp.TryGetValue(arr[1], out mainModule))
+                        {
+                            LogHelper.Logln("Main module changed to " + arr[1] + ".",LogType.Success);
+                            await ReplyAsync("Main module = " + arr[1]);
+                        }
+                        break;
+                    default:
+                        ExecuteModule(arr,true, mainModule);
+                        break;
+                }
             }
         }
         internal static async Task ReplyAsync(string msg)
@@ -117,6 +179,12 @@ namespace DiscordMusicBot.Commands
         {
             return $"<@{id}>";
         }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="command"></param>
+        /// <param name="startIndex">The index of initial string (avoid prefix/mention prefix). -1 to include prefix, 0 excludes prefix</param>
+        /// <returns></returns>
         internal static async Task<string[]> CommandSplit(string command, int startIndex = 0)
         {
             BenchTime.begin();

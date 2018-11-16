@@ -10,7 +10,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Generic.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)MediaDownloader.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)YoutubeSearch.cs" />
   </ItemGroup>
 </Project>
