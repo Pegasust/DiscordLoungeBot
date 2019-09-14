@@ -4,6 +4,9 @@
 #if !WINDOWS && ! MAC
 #define RASPBERRY_PI
 #endif
+#if !RASPBERRY_PI
+#define ACCESS_TO_TIME_ON_SONG
+#endif
 using Discord;
 using Discord.Audio;
 using Discord.WebSocket;
@@ -14,14 +17,19 @@ using System.Threading;
 using System.Threading.Tasks;
 using DiscordMusicBot.Commands;
 using LOutput = DiscordMusicBot.LoungeBot.LogHelper;
+using System.Collections.Concurrent;
+
 namespace DiscordMusicBot.LoungeBot
 {
+    [Serializable]
     internal struct Song
     {
         internal readonly string FilePath;
         internal readonly string Title;
         internal readonly string Duration;
         internal readonly string Url;
+        internal const string nullDuration = "»";
+        internal const string offlineUrl = "»";
         internal Song(string path, string title, string duration, string url)
         {
             FilePath = path;
@@ -30,13 +38,50 @@ namespace DiscordMusicBot.LoungeBot
             Url = url;
         }
         internal static readonly Song Null =
-            new Song("", "", "!NULL!", "");
+            new Song("", "", nullDuration, "");
         internal bool isNull
         {
             get
             {
-                return Duration == "!NULL!";
+                return Duration == nullDuration;
             }
+        }
+        internal bool isOffline
+        {
+            get
+            {
+                return Url == offlineUrl;
+            }
+        }
+    }
+    internal class BotPrompt
+    {
+        internal Dictionary<string, sbyte> acceptedDict;
+        internal sbyte? output = null;
+        private TaskCompletionSource<bool> botPromptedReply;
+        internal bool prompting
+        {
+            get
+            {
+                return internalPrompt;
+            }
+            set
+            {
+                new Thread(() => botPromptedReply.SetResult(value)).Start();
+                internalPrompt = value;
+            }
+        }
+        internal async Task<bool> getPromptingState()
+        {
+            bool val = await botPromptedReply.Task;
+            botPromptedReply = new TaskCompletionSource<bool>();
+            return val;
+        }
+        private bool internalPrompt;
+        internal BotPrompt()
+        {
+            botPromptedReply = new TaskCompletionSource<bool>(false);
+            internalPrompt = false;
         }
     }
     internal partial class LoungeBot : IDisposable
@@ -49,7 +94,7 @@ namespace DiscordMusicBot.LoungeBot
 #if RASPBERRY_PI
             LogSeverity.Warning
 #else
-            LogSeverity.Debug
+            LogSeverity.Verbose
 #endif
             ,
             ConnectionTimeout =
@@ -61,9 +106,9 @@ namespace DiscordMusicBot.LoungeBot
             ,
             HandlerTimeout =
 #if RASPBERRY_PI
-            10000
+            null
 #else
-            5000
+            null
 #endif
             
             ,MessageCacheSize =
@@ -79,8 +124,17 @@ namespace DiscordMusicBot.LoungeBot
         private CancellationTokenSource disposeToken;
         private IAudioClient audio;
         public bool IsDisposed;
+        internal BotPrompt botPrompt;
+        internal Func<Task> WhileOnline;
+        internal bool promptedToShowAwaitingQueue = false;
         #region Audio Service
-        private Queue<Song> songQueue;
+        private ConcurrentQueue<Song> songQueue;
+        internal Song[] queueArray(out Song nowPlaying)
+        {
+            nowPlaying = playingSong;
+            return songQueue.ToArray();
+        }
+        internal LoungeSongs loungeSongs;
         #endregion
         internal LoungeBot()
         {
@@ -90,10 +144,9 @@ namespace DiscordMusicBot.LoungeBot
         {
             //Initialize values
             //ClientConfig automatically handles first time launch
-            songQueue = new Queue<Song>();
+            songQueue = new ConcurrentQueue<Song>();
             disposeToken = new CancellationTokenSource();
-            threadSafePause = new TaskCompletionSource<bool>(); //From audio service
-
+            botPrompt = new BotPrompt();
             //Initialize client
             client = new DiscordSocketClient(dsconfig);
             client.Log += OnClientLog;
@@ -101,33 +154,46 @@ namespace DiscordMusicBot.LoungeBot
             client.Connected += Connected;
             client.Ready += OnClientReady;
             client.MessageReceived += OnMessageReceived;
+            WhileOnline += CommandService.AwaitUser;
 
             LOutput.Logln("Client is starting.", LogType.Success);
             await Connect();
 
             //Threaded
-            new Thread(MusicPlay).Start();
+            loungeSongs = new LoungeSongs("LoungeSongs","songinf");
+            new Thread(XMusicPlay).Start();
             //Handle Disconnection
             try
             {
-                while (disposeToken.IsCancellationRequested)
+                while (!disposeToken.IsCancellationRequested)
                 {
-                    ConnectionState state = client.ConnectionState;
-                    if (state == ConnectionState.Disconnected)
-                    {
-                        await Task.Delay(2000, disposeToken.Token);
-                        if (state == ConnectionState.Disconnected)
-                        {
-                            await Connect();
-                        }
-                    }
-                    await Task.Delay(2000, disposeToken.Token);
+                    //Main function
+                    await MainThreadLoop();
                 }
             }
             catch (TaskCanceledException)
             {
-
+                pause = true;
             }
+        }
+
+        private async Task MainThreadLoop()
+        {
+            ConnectionState state = client.ConnectionState;
+            const int MillisecondsDelay = 2000;
+            if (state == ConnectionState.Disconnected)
+            {
+                await Task.Delay(MillisecondsDelay, disposeToken.Token);
+                if (state == ConnectionState.Disconnected)
+                {
+                    await Connect();
+                }
+            }
+            else
+            {
+                await WhileOnline();
+            }
+            await Task.Delay(MillisecondsDelay, disposeToken.Token);
         }
 
         private async Task Connect()
@@ -153,7 +219,12 @@ namespace DiscordMusicBot.LoungeBot
         {
             for (int i = 0; i < songQueue.Count; i++)
             {
-                Song song = songQueue.Dequeue();
+                Song song;
+                if(!songQueue.TryDequeue(out song))
+                {
+                    LOutput.Logln("Unable to dequeue from songQueue!", LogType.Error);
+                    return;
+                }
                 try
                 {
                     File.Delete(song.FilePath);
@@ -187,7 +258,10 @@ namespace DiscordMusicBot.LoungeBot
         }
         protected virtual async void CheckForCommand(SocketMessage sMsg)
         {
-            if (sMsg.Author.Id == client.CurrentUser.Id)
+            if (sMsg.Author.Id == client.CurrentUser.Id
+                //It's my own msg, nvm
+                || sMsg.Content.Length == 0
+                || string.IsNullOrWhiteSpace(sMsg.Content))
             {
                 return;
             }
@@ -198,12 +272,51 @@ namespace DiscordMusicBot.LoungeBot
             {
                 //Not command
                 LOutput.Log("\n");
-                await sMsg.DeleteAsync();
+                return;
             }
             #region IsCommand
             LOutput.Logln(" " + isCommandSuffix);
-            await CommandService.ExecuteAsync(sMsg.Content, sMsg, startIndex);
+            await ExecuteUserInput(sMsg, startIndex);
             #endregion
+        }
+
+        private async Task ExecuteUserInput(SocketMessage sMsg, int startIndex)
+        {
+            if (botPrompt.prompting)
+            {
+                sbyte outp;
+                if (botPrompt.acceptedDict.TryGetValue(sMsg.Content, out outp))
+                {
+                    botPrompt.output = outp;
+                    botPrompt.prompting = false;
+                }
+                else if (sMsg.Content == "~esc")
+                {
+                    botPrompt.output = null;
+                    botPrompt.prompting = false;
+                }
+                else
+                {
+                    string acceptableValues = "[";
+                    int c = 0;
+                    foreach (string s in botPrompt.acceptedDict.Keys)
+                    {
+                        if (++c == botPrompt.acceptedDict.Keys.Count)
+                        {
+                            acceptableValues += s + "]";
+                        }
+                        else
+                        {
+                            acceptableValues += s + "|";
+                        }
+                    }
+                    await OutputAsync($"Please output {acceptableValues} to finish the prompt or \"~esc\" to abort the process.");
+                }
+            }
+            else
+            {
+                await CommandService.ExecuteAsync(sMsg.Content, sMsg, startIndex);
+            }
         }
         #endregion
         #region EVENT: CLIENT LOG
@@ -268,7 +381,7 @@ namespace DiscordMusicBot.LoungeBot
             }
             if (connectingGuild == null)
             {
-                LOutput.Logln($"Cannot find {ClientConfig.serverName.value}!", LogType.Warning);
+                LOutput.Logln($"Cannot find Guild {ClientConfig.serverName.value}!", LogType.Warning);
                 return;
             }
             foreach (ITextChannel t in connectingGuild.TextChannels)
@@ -313,20 +426,98 @@ namespace DiscordMusicBot.LoungeBot
         {
             await client.SetGameAsync("Nothing.");
         }
-        private async Task OutputAsync(string msg)
+        internal async Task OutputSearchResultsFromSites(string[] ytEntries, string[] scEntries)
         {
-            if (textChannel == null)
+            EmbedBuilder builder = new EmbedBuilder()
             {
-                await CommandService.ReplyAsync(msg);
+                Title = "Song List",
+                Color = Color.Purple
+            };
+            string field="";
+            for(int i =0;i<ytEntries.Length;i++)
+            {
+                field += $"**{i}.**{ytEntries[i]}\n";
+            }
+            builder.AddField("**Youtube**", field);
+            field = "";
+            for(int i=0;i<scEntries.Length;i++)
+            {
+                field += $"**{i}.**{scEntries[i]}\n";
+            }
+            builder.AddField("**Soundcloud**", field);
+            await OutputAsync("Please output ~[yt|sc]-[index]",builder.Build());
+        }
+
+        internal async Task OutputAsync(string msg, Embed embed)
+        {
+            if(textChannel == null)
+            {
+                try
+                {
+                    await CommandService.ReplyAsync(msg, embed: embed,options: new RequestOptions()
+                    {
+                        RetryMode = RetryMode.AlwaysRetry
+                    });
+                }
+                catch (Exception e)
+                {
+                    LogHelper.Logln($"Error while executing ReplyAsync({msg}). Error: {e.Message}", LogType.Error);
+                }
             }
             else
             {
-                await textChannel.SendMessageAsync(msg);
+                try
+                {
+                    await textChannel.SendMessageAsync(msg, false, embed, new RequestOptions()
+                    {
+                        RetryMode = RetryMode.AlwaysRetry,
+                    });
+                }
+                catch (Exception)
+                {
+                    LOutput.Logln($"Cannot do {textChannel.Name}.SendMessageAsync({msg}). ", LogType.Error);
+                }
             }
-        }        
+        }
+        internal async Task OutputAsync(string msg)
+        {
+            if (textChannel == null)
+            {
+                try
+                {
+                    await CommandService.ReplyAsync(msg);
+                }
+                catch(Exception e)
+                {
+                    LogHelper.Logln($"Error while executing ReplyAsync({msg}). Error: {e.Message}", LogType.Error);
+                }
+            }
+            else
+            {
+                try
+                {
+                    await textChannel.SendMessageAsync(msg,false,null,new RequestOptions()
+                    {
+                        RetryMode = RetryMode.AlwaysRetry,
+                    });
+                }
+                catch (Exception)
+                {
+                    LOutput.Logln($"Cannot do {textChannel.Name}.SendMessageAsync({msg}). ", LogType.Error);
+                }
+            }
+        } 
         #endregion
         #region Audio service
         partial void MusicPlay();
+        internal void AddSongToQueue(Song song)
+        {
+            songQueue.Enqueue(song);
+        }
+        internal async Task AddSongToQueueAsync(Song song)
+        {
+            await Task.Run(() => songQueue.Enqueue(song));
+        }
         #endregion
     }
 }

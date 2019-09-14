@@ -35,6 +35,7 @@ namespace DiscordMusicBot.Commands
             None,
             ChangeLConfig,
             AudioService,
+            Utilities,
         }
         /// <summary>
         /// Users can input the immediate command without specifying the main module.
@@ -44,7 +45,6 @@ namespace DiscordMusicBot.Commands
         /// is acceptable.
         /// Alternatively, user can also input: (command) audio play [url] for the full name.
         /// </summary>
-        private static Module mainModule = Module.AudioService;
         const string changeLConfigField = "changelconfigfield";
         static async void ChangeLConfigField(string[] param, bool isMain = false)
         {
@@ -57,10 +57,17 @@ namespace DiscordMusicBot.Commands
         {
             await AudioServiceCommand(param, isMain);
         }
+        static async void UtilitiesService(string[] param, bool isMain = false)
+        {
+            await UtilitiesServiceCommand(param, isMain);
+        }
+        const string utilitiesService = "utilities";
         static readonly Dictionary<string, Module> moduleLookUp = new Dictionary<string, Module>()
             {
             { changeLConfigField,Module.ChangeLConfig },
             { audioService, Module.AudioService },
+            { utilitiesService, Module.Utilities },
+            {"util", Module.Utilities },
             };
         private static void ExecuteModule(string[] param, bool isMainModule, Module module)
         {
@@ -71,6 +78,9 @@ namespace DiscordMusicBot.Commands
                     break;
                 case Module.ChangeLConfig:
                     ChangeLConfigField(param, isMainModule);
+                    break;
+                case Module.Utilities:
+                    UtilitiesService(param, isMainModule);
                     break;
             }
         }
@@ -103,6 +113,8 @@ namespace DiscordMusicBot.Commands
         }
         private static IDMChannel dmChannel;
         private static bool dmChannelInit = false;
+        private static Module mainModule = Module.AudioService;
+
         private static async Task DeleteUMsgAsync()
         {
             await umsg.DeleteAsync();
@@ -117,6 +129,11 @@ namespace DiscordMusicBot.Commands
         {
             umsg = uMsg as SocketUserMessage;
             string[] arr = await CommandServiceHelper.CommandSplit(command, startIndex);
+            if (arr.Length == 0)
+            {
+                LogHelper.Logln("Not a command after all!.",LogType.Success);
+                return;
+            }
 #if DEBUG
             LogHelper.Logln("Command: " + string.Join(' ', arr),LogType.Debug);
 #endif
@@ -128,7 +145,7 @@ namespace DiscordMusicBot.Commands
             else
             {
                 //Core commands
-                switch (arr[0])
+                switch (arr[0].ToLower())
                 {
                     case "mainmodule":
                         if (arr.Length < 2 || arr.Length > 4)
@@ -143,15 +160,63 @@ namespace DiscordMusicBot.Commands
                             await ReplyAsync("Main module = " + arr[1]);
                         }
                         break;
+                    case "help":
+                    case "?":
+                        //TODO: Help function please
+                        break;
                     default:
                         ExecuteModule(arr,true, mainModule);
                         break;
                 }
             }
         }
-        internal static async Task ReplyAsync(string msg)
+        internal static async Task ExecuteAnonymouslyAsync(string command, int startIndex = 0)
         {
-            await umsg.Channel.SendMessageAsync(msg);
+            string[] arr = await CommandServiceHelper.CommandSplit(command, startIndex);
+            if (arr.Length == 0)
+            {
+                LogHelper.Logln("Not a command after all!.", LogType.Success);
+                return;
+            }
+#if DEBUG
+            LogHelper.Logln("Command: " + string.Join(' ', arr), LogType.Debug);
+#endif
+            Module moduleExecuting;
+            if (moduleLookUp.TryGetValue(arr[0], out moduleExecuting))
+            {
+                ExecuteModule(arr, false, moduleExecuting);
+            }
+            else
+            {
+                //Core commands
+                switch (arr[0].ToLower())
+                {
+                    case "mainmodule":
+                        if (arr.Length < 2 || arr.Length > 4)
+                        {
+                            LogHelper.Logln("Attempting to execute main module command with invalid # of params.", LogType.Warning);
+                            await ReplyAsync("Please use mainmodule command with only one param.");
+                            return;
+                        }
+                        if (moduleLookUp.TryGetValue(arr[1], out mainModule))
+                        {
+                            LogHelper.Logln("Main module changed to " + arr[1] + ".", LogType.Success);
+                            await ReplyAsync("Main module = " + arr[1]);
+                        }
+                        break;
+                    case "help":
+                    case "?":
+                        //TODO: Help function please
+                        break;
+                    default:
+                        ExecuteModule(arr, true, mainModule);
+                        break;
+                }
+            }
+        }
+        internal static async Task ReplyAsync(string msg,bool isTTS = false, Embed embed = null, RequestOptions options= null)
+        {
+            await umsg.Channel.SendMessageAsync(msg,isTTS,embed,options);
         }
         private static async void AssignDMChannel()
         {
@@ -188,8 +253,7 @@ namespace DiscordMusicBot.Commands
         internal static async Task<string[]> CommandSplit(string command, int startIndex = 0)
         {
             BenchTime.begin();
-            List<string> result = new List<string>((command.Length-startIndex)/3);
-            int a = 0;
+            List<string> result = new List<string>();
             string str = "";
             bool openedNester = false;
             for (int i = startIndex; i < command.Length; i++)
@@ -209,7 +273,7 @@ namespace DiscordMusicBot.Commands
                     {
                         if (str != "")
                         {
-                            result[a++] = str;
+                            result.Add(str);
                             str = "";
                         }
                     }
@@ -219,7 +283,7 @@ namespace DiscordMusicBot.Commands
                     if (nester.Contains(command[i]))
                     {
                         openedNester = false;
-                        result[a++] = str;
+                        result.Add(str);
                         str = "";
                         continue;
                     }
@@ -237,9 +301,12 @@ namespace DiscordMusicBot.Commands
             }
             if (str != "")
             {
-                result[a++] = str;
+                result.Add(str);
             }
             //Done with the processing
+#if TRACE
+            LogHelper.Logln("Processing is done.");
+#endif
             string[] resultArr = result.ToArray();
             BenchTime.SendResult("Splitting command took ", "ms.");
             return resultArr;

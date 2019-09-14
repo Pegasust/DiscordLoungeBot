@@ -65,7 +65,7 @@ namespace DiscordMusicBot.LoungeBot
         {
             //Serializable
             MemberInfo[] members = FormatterServices.GetSerializableMembers(graph.GetType(), context);
-            //Data from fields
+            //Data from fie lds
             object[] objs = FormatterServices.GetObjectData(graph, members);
             using (StreamWriter sw = new StreamWriter(serializationStream))
             {

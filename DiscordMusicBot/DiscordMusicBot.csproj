@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
     <ApplicationIcon>disc.ico</ApplicationIcon>
     <Version>1.0.1</Version>
     <Authors>mrousavy</Authors>
@@ -19,7 +19,7 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>TRACE;responsive;TRACETIME;WINDOWS</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;responsive;TRACETIME;WINDOWS;ML_INITIALIZED</DefineConstants>
     <Optimize>true</Optimize>
   </PropertyGroup>
 
@@ -29,6 +29,7 @@
     <PackageReference Include="Discord.Net.Core" Version="1.0.2" />
     <PackageReference Include="Discord.Net.Rest" Version="1.0.2" />
     <PackageReference Include="Discord.Net.WebSocket" Version="1.0.2" />
+    <PackageReference Include="Google.Apis.YouTube.v3" Version="1.36.1.1226" />
   </ItemGroup>
 
   <ItemGroup>
@@ -62,9 +63,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Interface\" />
     <Folder Include="LoungeBot\Messages\" />
   </ItemGroup>
 
   <Import Project="..\YoutubeHelper\YoutubeHelper.projitems" Label="Shared" />
+
+  <Import Project="..\SoundcloudDLHelper\SoundcloudDLHelper.projitems" Label="Shared" />
 
 </Project>

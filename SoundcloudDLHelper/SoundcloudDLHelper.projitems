@@ -3,14 +3,14 @@
   <PropertyGroup>
     <MSBuildAllProjects>$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
     <HasSharedItems>true</HasSharedItems>
-    <SharedGUID>914d3c7d-a3f9-4998-bafb-26e5699ad213</SharedGUID>
+    <SharedGUID>10f1726a-64a5-4c92-b644-7b51019f8b8a</SharedGUID>
   </PropertyGroup>
   <PropertyGroup Label="Configuration">
-    <Import_RootNamespace>YoutubeHelper</Import_RootNamespace>
+    <Import_RootNamespace>SoundcloudDLHelper</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="$(MSBuildThisFileDirectory)Generic.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Search.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)SearchEntry.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)YoutubeSearch.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)WebSocket.cs" />
   </ItemGroup>
 </Project>

@@ -1,10 +1,10 @@
-﻿using Newtonsoft.Json;
+﻿using DiscordMusicBot.LoungeBot;
+using Newtonsoft.Json;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-
 namespace DiscordMusicBot {
     internal class Program {
         public static
@@ -15,7 +15,6 @@ namespace DiscordMusicBot {
 #endif
             Bot;
         private static CancellationTokenSource _cts;
-
         private static void Main(string[] args) {
             ConsoleHelper.Set();
             Console.Title = "Music Bot (Loading...)";
@@ -77,7 +76,6 @@ namespace DiscordMusicBot {
             //Thread Block
             //Thread.Sleep(-1);
         }
-
         private static async Task Do() {
             try {
                 _cts = new CancellationTokenSource();
@@ -86,6 +84,7 @@ namespace DiscordMusicBot {
                     MusicBot
 #else
                     LoungeBot.LoungeBot
+
 #endif
                     ();
                 

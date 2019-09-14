@@ -1,14 +1,17 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26403.7
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28315.86
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DiscordMusicBot", "DiscordMusicBot\DiscordMusicBot.csproj", "{CD6E6242-56B1-454D-8733-AE2E751DDF80}"
 EndProject
-Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "YoutubeHelper", "YoutubeHelper\YoutubeHelper.shproj", "{914D3C7D-A3F9-4998-BAFB-26E5699AD213}"
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "YoutubeDLHelper", "YoutubeHelper\YoutubeDLHelper.shproj", "{914D3C7D-A3F9-4998-BAFB-26E5699AD213}"
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "SoundcloudDLHelper", "SoundcloudDLHelper\SoundcloudDLHelper.shproj", "{10F1726A-64A5-4C92-B644-7B51019F8B8A}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		SoundcloudDLHelper\SoundcloudDLHelper.projitems*{10f1726a-64a5-4c92-b644-7b51019f8b8a}*SharedItemsImports = 13
 		YoutubeHelper\YoutubeHelper.projitems*{914d3c7d-a3f9-4998-bafb-26e5699ad213}*SharedItemsImports = 13
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

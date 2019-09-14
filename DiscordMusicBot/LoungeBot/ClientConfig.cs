@@ -68,10 +68,23 @@ namespace DiscordMusicBot.LoungeBot
         internal static readonly string clientID;
         internal static readonly string clientSecret;
         internal static readonly string token;
-        internal static SerializableField botName;
-        internal static SerializableField serverName;
-        internal static SerializableField textChannel;
-        internal static SerializableField voiceChannel;
+        internal static ulong offlineDiskSpace
+        {
+            get
+            {
+                return _offlineDiskSpace.value;
+            }
+            set
+            {
+                //TODO: On change offlineDiskSpace
+                _offlineDiskSpace.ChangeValue(value);
+            }
+        }
+        private static SerializableField<ulong> _offlineDiskSpace;
+        internal static SerializableField<string> botName;
+        internal static SerializableField<string> serverName;
+        internal static SerializableField<string> textChannel;
+        internal static SerializableField<string> voiceChannel;
         static ClientConfig()
         {
 #if DEBUG
@@ -84,10 +97,14 @@ namespace DiscordMusicBot.LoungeBot
 #endif
             clientSecret = config.clientSecret;
             token = config.token;
-            botName = new SerializableField(config.botName);
-            serverName = new SerializableField(config.serverName);
-            textChannel = new SerializableField(config.textChannelName);
-            voiceChannel = new SerializableField(config.voiceChannelName);
+            _offlineDiskSpace = new SerializableField<ulong>(config.offlineDiskSpace);
+            botName = new SerializableField<string>(config.botName);
+            serverName = new SerializableField<string>(config.serverName);
+            textChannel = new SerializableField<string>(config.textChannelName);
+            voiceChannel = new SerializableField<string>(config.voiceChannelName);
+#if DEBUG
+
+#endif
             LogHelper.Logln("ClientConfig initialized.", LogType.Success);
         }
         internal static void ApplyConfigFile(ConfigPriority priority = ConfigPriority.RuntimeChanges)
@@ -98,7 +115,7 @@ namespace DiscordMusicBot.LoungeBot
                 LogHelper.Logln($"One of the core values (ID, Secret, or Token) have been changed in the file ({Path.GetFullPath(configFileName)}). The program might need a restart to apply those new values.",
                     LogType.Warning);
             }
-            if (SerializableField.needsToReserialize)
+            if (SerializableField<string>.needsToReserialize)
             {
                 LogHelper.Logln("There are runtime changes to configuration.",LogType.Warning);
                 if (priority == ConfigPriority.RuntimeChanges)
@@ -109,20 +126,20 @@ namespace DiscordMusicBot.LoungeBot
                 else if (priority == ConfigPriority.FileChanges)
                 {
                     LogHelper.Logln("Discarding runtime changes to configs.", LogType.Warning);
-                    SerializableField.Reset();
+                    SerializableField<string>.Reset();
                 }
             }
-            botName = new SerializableField(config.botName);
-            serverName = new SerializableField(config.serverName);
-            textChannel = new SerializableField(config.textChannelName);
-            voiceChannel = new SerializableField(config.voiceChannelName);
+            botName = new SerializableField<string>(config.botName);
+            serverName = new SerializableField<string>(config.serverName);
+            textChannel = new SerializableField<string>(config.textChannelName);
+            voiceChannel = new SerializableField<string>(config.voiceChannelName);
         }
         internal static void OnShutdown()
         {
-            if (SerializableField.needsToReserialize)
+            if (SerializableField<string>.needsToReserialize)
             {
                 new Thread(()=>Serialize(new SerializedConfig(clientID, clientSecret, botName.value, token,
-                    serverName.value, textChannel.value, voiceChannel.value), configFileName, serializationFormatter)).Start();
+                    serverName.value, textChannel.value, voiceChannel.value, _offlineDiskSpace.value), configFileName, serializationFormatter)).Start();
             }
         }
         private static SerializedConfig Deserialize(string filePath, IFormatter formatter)
@@ -147,30 +164,39 @@ namespace DiscordMusicBot.LoungeBot
         }
     }
 
-    internal class SerializableField
+    internal class SerializableField<T>
     {
         internal static bool needsToReserialize = false;
         internal static void Reset()
         {
             needsToReserialize = false;
         }
-        internal SerializableField(string defaultValue)
+        internal SerializableField(T defaultValue)
         {
             this.defaultValue = defaultValue;
         }
-        private readonly string defaultValue;
-        internal string value;
-        internal void ChangeValue(string newValue)
+        private readonly T defaultValue;
+        private T _value;
+        internal T value
         {
-            if (newValue != defaultValue)
+            get
             {
+                return changed ? _value : defaultValue;
+            }
+        }
+        bool changed = false;
+        internal void ChangeValue(T newValue)
+        {
+            if (!newValue.Equals(defaultValue))
+            {
+                changed = true;
                 needsToReserialize = true;
-                value = newValue;
+                _value = newValue;
             }
         }
         public override string ToString()
         {
-            return value;
+            return value.ToString();
         }
     }
     [Serializable]
@@ -183,7 +209,7 @@ namespace DiscordMusicBot.LoungeBot
         public readonly string serverName;
         public readonly string textChannelName;
         public readonly string voiceChannelName;
-
+        public readonly ulong offlineDiskSpace;
         public readonly static SerializedConfig Nameless = new SerializedConfig(
             id: "507310750801592330",
             secret: "UNIMPLEMENTED",
@@ -191,11 +217,12 @@ namespace DiscordMusicBot.LoungeBot
             token: "NTA3MzEwNzUwODAxNTkyMzMw.Dru3Pw.6SqMzuFglO_NnUsOxQkQWK98VRs",
             serverName: "devv",
             textChannelName: "bot-console",
-            voiceChannelName: "General"
+            voiceChannelName: "General",
+            offlineDiskSpace: 1024 * 1024 * 5 //5 gb
             );
         public SerializedConfig(string id, string secret, string botName, 
             string token, string serverName,
-            string textChannelName, string voiceChannelName)
+            string textChannelName, string voiceChannelName, ulong offlineDiskSpace)
         {
             clientID = id;
             clientSecret = secret;
@@ -204,6 +231,7 @@ namespace DiscordMusicBot.LoungeBot
             this.serverName = serverName;
             this.textChannelName = textChannelName;
             this.voiceChannelName = voiceChannelName;
+            this.offlineDiskSpace = offlineDiskSpace;
         }
         public SerializedConfig(SerializedConfig other)
         {
@@ -213,6 +241,7 @@ namespace DiscordMusicBot.LoungeBot
             this.serverName = other.serverName;
             this.textChannelName = other.textChannelName;
             this.voiceChannelName = other.voiceChannelName;
+            this.offlineDiskSpace = other.offlineDiskSpace;
         }
         public static bool operator ==(SerializedConfig lhs, SerializedConfig rhs)
         {
@@ -235,7 +264,8 @@ namespace DiscordMusicBot.LoungeBot
                 token == compare.token &&
                 serverName == compare.serverName &&
                 textChannelName == compare.textChannelName &&
-                voiceChannelName == compare.voiceChannelName;
+                voiceChannelName == compare.voiceChannelName &&
+                offlineDiskSpace == compare.offlineDiskSpace;
         }
         public override bool Equals(object obj)
         {
@@ -288,10 +318,15 @@ namespace DiscordMusicBot.Commands
             botName,
             serverName,
             textChannel,
-            voiceChannel
+            voiceChannel,
+            offlineSpace,
         }
         private static FieldChanging GetFieldChanging(string identifier)
         {
+            if (offlineSpaceField.Contains(identifier))
+            {
+                return FieldChanging.offlineSpace;
+            }
             if (botNameField.Contains(identifier))
             {
                 return FieldChanging.botName;
@@ -310,6 +345,7 @@ namespace DiscordMusicBot.Commands
             }
             return FieldChanging.none;
         }
+        static readonly string[] offlineSpaceField = { "offline_space", "-o" };
         static readonly string[] botNameField = {"bot_name", "-b"};
         static readonly string[] serverNameField = {"server_name", "-s"};
         static readonly string[] textChannelField = {"text_channel", "-t"};
@@ -340,6 +376,66 @@ namespace DiscordMusicBot.Commands
                         break;
                     case FieldChanging.voiceChannel:
                         x += () => ClientConfig.voiceChannel.ChangeValue(parameters[++i]);
+                        break;
+                    case FieldChanging.offlineSpace:
+                        #region scan input from string to ulong byte
+                        string size = parameters[++i];
+                        string sizeNum="";
+                        string unit = "";
+                        for (int j = 0; j < size.Length; j++)
+                        {
+                            if (size[j] >= '0' && size[j] <= '9')
+                            {
+                                sizeNum += size[j];
+                            }
+                            else if (size[j] >= 'a' && size[j] <= 'z')
+                            {
+                                unit += size[j];
+                            }
+                        }
+                        ulong byteSize;
+                        if (!ulong.TryParse(sizeNum, out byteSize))
+                        {
+                            if (string.IsNullOrWhiteSpace(unit))
+                            {
+                                x += async () =>
+                                await Program.Bot.OutputAsync("Invalid of offlineDiskSpace. Only the following units are identified: kb, mb, gb, tb.");
+                                continue;
+                            }
+                            else
+                            {
+                                byteSize = 1;
+                            }
+                        }
+                        switch (unit)
+                        {
+                            case "kb":
+                               byteSize <<= 10; //2^10
+                                break;
+                            case "mb":
+                                byteSize <<= 20; //2^10 * 2^10
+                                break;
+                            case "gb":
+                                byteSize <<= 30;
+                                break;
+                            case "tb":
+                                byteSize <<= 40;
+                                break;                            
+                        }
+                        #endregion
+                        x +=
+                            #if DEBUG || TRACE
+                            async
+                            #endif
+                            () =>
+                        {
+#if DEBUG || TRACE
+                            string outputStr = $"offlineDiskSpace is being changed to {sizeNum}{unit.ToUpper()} (={byteSize} bytes).";
+                            LogHelper.Logln(outputStr);
+                            await Program.Bot.OutputAsync(outputStr);
+#endif
+                            ClientConfig.offlineDiskSpace = byteSize;
+                        };
                         break;
                     default:
                         break;
