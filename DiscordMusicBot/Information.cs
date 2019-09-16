@@ -15,10 +15,10 @@ namespace DiscordMusicBot {
     }
 
     public class Config {
-        public string ClientId = "507310750801592330";
+        public string ClientId = ";
         public string ClientSecret = "YourClientSecret";
         public string BotName = "Lounge Bot";
-        public string Token = "NTA3MzEwNzUwODAxNTkyMzMw.Dru3Pw.6SqMzuFglO_NnUsOxQkQWK98VRs";
+        public string Token = "";
         public string ServerName = "devv";
         public string TextChannelName = "bot-console";
         public string VoiceChannelName = "General";
